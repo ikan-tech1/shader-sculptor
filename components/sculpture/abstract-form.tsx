@@ -4,11 +4,15 @@ import { useMemo, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
-import { useFragmentStore } from "@/lib/store/fragments";
+import { useFragmentStore, SCULPT_VARIANTS, type SculptVariant } from "@/lib/store/fragments";
 import { createBaseSculptGeometry } from "@/lib/sculpt/slice";
-import { createIridescentMaterial, cloneMaterialUniforms } from "@/lib/sculpt/shaders";
+import { createIridescentMaterial, cloneMaterialUniforms, type SculptVariantId } from "@/lib/sculpt/shaders";
 import { rippleStrengthAt, isRippleComplete } from "@/lib/sculpt/ripple";
 import { recallProgress } from "@/lib/sculpt/recall";
+
+function variantToId(v: SculptVariant): SculptVariantId {
+  return SCULPT_VARIANTS.indexOf(v) as SculptVariantId;
+}
 
 export type FragmentMesh = {
   id: string;
@@ -80,14 +84,18 @@ function FragmentPiece({
 }
 
 export function AbstractForm({ fragments, onMaterialsReady }: AbstractFormProps) {
-  const baseMaterial = useMemo(() => createIridescentMaterial(), []);
+  const variant = useFragmentStore((s) => s.variant);
+  const variantId = variantToId(variant);
+  const baseMaterial = useMemo(() => createIridescentMaterial(variantId), [variantId]);
   const materials = useMemo(() => {
     const map = new Map<string, THREE.ShaderMaterial>();
     for (const f of fragments) {
-      map.set(f.id, cloneMaterialUniforms(baseMaterial));
+      const m = cloneMaterialUniforms(baseMaterial);
+      m.uniforms.uVariant.value = variantId;
+      map.set(f.id, m);
     }
     return map;
-  }, [fragments, baseMaterial]);
+  }, [fragments, baseMaterial, variantId]);
 
   useEffect(() => {
     onMaterialsReady?.(materials);
@@ -95,8 +103,8 @@ export function AbstractForm({ fragments, onMaterialsReady }: AbstractFormProps)
 
   return (
     <group>
-      <Environment preset="city" environmentIntensity={0.35} />
-      <ambientLight intensity={0.08} />
+      <Environment preset={variant === "neon-sphere" ? "night" : variant === "glass-ring" ? "studio" : "city"} environmentIntensity={variant === "metallic-cloth" ? 0.55 : 0.35} />
+      <ambientLight intensity={variant === "neon-sphere" ? 0.04 : 0.08} />
       <directionalLight position={[4, 6, 3]} intensity={0.55} color="#c8d4ff" />
       <pointLight position={[-3, -2, 4]} intensity={0.35} color="#ff6ec7" />
 
@@ -109,11 +117,11 @@ export function AbstractForm({ fragments, onMaterialsReady }: AbstractFormProps)
   );
 }
 
-export function createMonolithicFragment(): FragmentMesh[] {
+export function createMonolithicFragment(variant: SculptVariant = "ribbon"): FragmentMesh[] {
   return [
     {
       id: "core",
-      geometry: createBaseSculptGeometry(),
+      geometry: createBaseSculptGeometry(variant),
     },
   ];
 }

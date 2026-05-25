@@ -7,7 +7,13 @@ import { EffectComposer, Bloom, ChromaticAberration } from "@react-three/postpro
 import { BlendFunction } from "postprocessing";
 import { AnimatePresence, motion } from "framer-motion";
 import { AbstractForm, createMonolithicFragment, type FragmentMesh } from "./abstract-form";
-import { useFragmentStore, cloneFragmentTransform } from "@/lib/store/fragments";
+import {
+  useFragmentStore,
+  cloneFragmentTransform,
+  SCULPT_VARIANTS,
+  VARIANT_LABELS,
+  type SculptVariant,
+} from "@/lib/store/fragments";
 import {
   detectPerformanceTier,
   getPerformanceProfile,
@@ -336,10 +342,58 @@ function RotatingGroup({ children }: { children: React.ReactNode }) {
   return <group ref={ref}>{children}</group>;
 }
 
+function GalleryNavigator() {
+  const variant = useFragmentStore((s) => s.variant);
+  const cycleVariant = useFragmentStore((s) => s.cycleVariant);
+
+  return (
+    <div className="absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-0 right-0 z-10 flex items-center justify-center pointer-events-none">
+      <div className="flex items-center gap-3 pointer-events-auto">
+        <button
+          type="button"
+          onClick={() => cycleVariant(-1)}
+          className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/35 hover:text-white/80 transition-colors px-2 py-1"
+          aria-label="Previous artwork"
+        >
+          {"<"}
+        </button>
+        <div className="flex items-center gap-2">
+          {SCULPT_VARIANTS.map((v) => (
+            <span
+              key={v}
+              className={
+                v === variant
+                  ? "w-6 h-[1px] bg-white/85"
+                  : "w-3 h-[1px] bg-white/20 transition-all"
+              }
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => cycleVariant(1)}
+          className="font-mono text-[10px] uppercase tracking-[0.32em] text-white/35 hover:text-white/80 transition-colors px-2 py-1"
+          aria-label="Next artwork"
+        >
+          {">"}
+        </button>
+      </div>
+      <span className="absolute top-[-22px] left-0 right-0 text-center font-mono text-[9px] uppercase tracking-[0.36em] text-white/35">
+        {VARIANT_LABELS[variant]}
+      </span>
+    </div>
+  );
+}
+
 export function SculptureCanvas() {
   const [profile] = useState(() => getPerformanceProfile(detectPerformanceTier()));
-  const [fragments, setFragments] = useState<FragmentMesh[]>(() => createMonolithicFragment());
+  const variant = useFragmentStore((s) => s.variant);
+  const [fragments, setFragments] = useState<FragmentMesh[]>(() => createMonolithicFragment(variant));
   const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    setFragments(createMonolithicFragment(variant));
+  }, [variant]);
 
   return (
     <div className="fixed inset-0 bg-black touch-none select-none">
@@ -361,11 +415,13 @@ export function SculptureCanvas() {
         <color attach="background" args={["#000000"]} />
         <Suspense fallback={null}>
           <RotatingGroup>
-            <SculptureLogic fragments={fragments} setFragments={setFragments} />
+            <SculptureLogic key={variant} fragments={fragments} setFragments={setFragments} />
           </RotatingGroup>
           <PostEffects profile={profile} />
         </Suspense>
       </Canvas>
+
+      {started && <GalleryNavigator />}
 
       <AnimatePresence>
         {!started && (

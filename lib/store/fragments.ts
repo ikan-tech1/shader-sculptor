@@ -36,6 +36,21 @@ export type RecallState = {
 
 export type SculptPhase = "pristine" | "sliced" | "vortexed" | "rippling" | "recalling";
 
+export const SCULPT_VARIANTS = [
+  "ribbon",
+  "glass-ring",
+  "metallic-cloth",
+  "neon-sphere",
+] as const;
+export type SculptVariant = (typeof SCULPT_VARIANTS)[number];
+
+export const VARIANT_LABELS: Record<SculptVariant, string> = {
+  ribbon: "Iridescent Ribbon",
+  "glass-ring": "Liquid Glass Ring",
+  "metallic-cloth": "Metallic Cloth",
+  "neon-sphere": "Neon Gradient Sphere",
+};
+
 type FragmentStore = {
   phase: SculptPhase;
   fragments: FragmentTransform[];
@@ -44,6 +59,7 @@ type FragmentStore = {
   vortex: VortexState;
   recall: RecallState;
   sliceFlash: number;
+  variant: SculptVariant;
 
   setPhase: (phase: SculptPhase) => void;
   setFragments: (fragments: FragmentTransform[]) => void;
@@ -57,7 +73,19 @@ type FragmentStore = {
   setRecallPhase: (phase: RecallState["phase"]) => void;
   triggerSliceFlash: () => void;
   reset: () => void;
+  setVariant: (variant: SculptVariant) => void;
+  cycleVariant: (direction: 1 | -1) => void;
 };
+
+function vibrate(pattern: number | number[]) {
+  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
+    try {
+      navigator.vibrate(pattern);
+    } catch {
+      /* ignore */
+    }
+  }
+}
 
 const defaultVortex = (): VortexState => ({
   active: false,
@@ -81,6 +109,7 @@ export const useFragmentStore = create<FragmentStore>((set, get) => ({
   vortex: defaultVortex(),
   recall: defaultRecall(),
   sliceFlash: 0,
+  variant: "ribbon",
 
   setPhase: (phase) => set({ phase }),
 
@@ -104,11 +133,13 @@ export const useFragmentStore = create<FragmentStore>((set, get) => ({
 
   incrementSliceCount: () => set((s) => ({ sliceCount: s.sliceCount + 1 })),
 
-  triggerRipple: (x, y) =>
+  triggerRipple: (x, y) => {
     set({
       ripple: { x, y, startTime: performance.now(), strength: 1 },
       phase: "rippling",
-    }),
+    });
+    vibrate(8);
+  },
 
   clearRipple: () => set({ ripple: null }),
 
@@ -120,7 +151,7 @@ export const useFragmentStore = create<FragmentStore>((set, get) => ({
 
   resetVortex: () => set({ vortex: defaultVortex() }),
 
-  startRecall: (origin) =>
+  startRecall: (origin) => {
     set({
       recall: {
         phase: "recalling",
@@ -129,7 +160,9 @@ export const useFragmentStore = create<FragmentStore>((set, get) => ({
         shockwaveStrength: 1.2,
       },
       phase: "recalling",
-    }),
+    });
+    vibrate([14, 30, 24]);
+  },
 
   setRecallPhase: (phase) =>
     set((state) => ({
@@ -137,7 +170,10 @@ export const useFragmentStore = create<FragmentStore>((set, get) => ({
       phase: phase === "complete" ? "pristine" : state.phase,
     })),
 
-  triggerSliceFlash: () => set({ sliceFlash: performance.now() }),
+  triggerSliceFlash: () => {
+    set({ sliceFlash: performance.now() });
+    vibrate([18, 22, 10]);
+  },
 
   reset: () =>
     set({
@@ -149,6 +185,25 @@ export const useFragmentStore = create<FragmentStore>((set, get) => ({
       recall: defaultRecall(),
       sliceFlash: 0,
     }),
+
+  setVariant: (variant) =>
+    set({
+      variant,
+      phase: "pristine",
+      fragments: [],
+      sliceCount: 0,
+      ripple: null,
+      vortex: defaultVortex(),
+      recall: defaultRecall(),
+      sliceFlash: 0,
+    }),
+
+  cycleVariant: (direction) => {
+    const current = get().variant;
+    const i = SCULPT_VARIANTS.indexOf(current);
+    const next = SCULPT_VARIANTS[(i + direction + SCULPT_VARIANTS.length) % SCULPT_VARIANTS.length];
+    get().setVariant(next);
+  },
 }));
 
 export function cloneFragmentTransform(

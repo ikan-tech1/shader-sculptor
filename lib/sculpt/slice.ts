@@ -159,8 +159,71 @@ export function createSlicePlaneFromGesture(plane: SlicePlane): THREE.Plane {
   return new THREE.Plane().setFromNormalAndCoplanarPoint(plane.normal, plane.point);
 }
 
-export function createBaseSculptGeometry(): THREE.BufferGeometry {
-  const geometry = new THREE.IcosahedronGeometry(1.35, 4);
-  geometry.computeVertexNormals();
-  return geometry;
+export type SculptVariant = "ribbon" | "glass-ring" | "metallic-cloth" | "neon-sphere";
+
+function makeRibbon(): THREE.BufferGeometry {
+  const points: THREE.Vector3[] = [];
+  const SAMPLES = 120;
+  for (let i = 0; i < SAMPLES; i++) {
+    const a = (i / SAMPLES) * Math.PI * 2;
+    points.push(
+      new THREE.Vector3(
+        Math.sin(a * 2) * 1.0 + Math.cos(a * 3) * 0.35,
+        Math.cos(a * 2) * 1.0 + Math.sin(a * 5) * 0.3,
+        Math.sin(a * 3) * 0.6,
+      ),
+    );
+  }
+  const curve = new THREE.CatmullRomCurve3(points, true, "centripetal");
+  const tube = new THREE.TubeGeometry(curve, 240, 0.16, 24, true);
+  tube.computeVertexNormals();
+  return tube;
+}
+
+function makeGlassRing(): THREE.BufferGeometry {
+  const geo = new THREE.TorusKnotGeometry(0.95, 0.32, 220, 28, 2, 3);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+function makeMetallicCloth(): THREE.BufferGeometry {
+  const geo = new THREE.PlaneGeometry(2.4, 2.4, 96, 96);
+  const pos = geo.getAttribute("position") as THREE.BufferAttribute;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const y = pos.getY(i);
+    const r = Math.hypot(x, y);
+    const z =
+      Math.sin(x * 1.6 + y * 0.8) * 0.35 +
+      Math.cos(x * 0.7 - y * 1.4) * 0.28 +
+      Math.sin(r * 2.3) * 0.12;
+    pos.setZ(i, z);
+  }
+  pos.needsUpdate = true;
+  geo.computeVertexNormals();
+  // angle it so we see depth and folds, not a head-on panel
+  geo.rotateX(-0.45);
+  geo.rotateY(0.35);
+  return geo;
+}
+
+function makeNeonSphere(): THREE.BufferGeometry {
+  const geo = new THREE.SphereGeometry(1.25, 96, 64);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+export function createBaseSculptGeometry(
+  variant: SculptVariant = "ribbon",
+): THREE.BufferGeometry {
+  switch (variant) {
+    case "ribbon":
+      return makeRibbon();
+    case "glass-ring":
+      return makeGlassRing();
+    case "metallic-cloth":
+      return makeMetallicCloth();
+    case "neon-sphere":
+      return makeNeonSphere();
+  }
 }
