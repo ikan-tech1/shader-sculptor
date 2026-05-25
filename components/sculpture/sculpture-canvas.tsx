@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { EffectComposer, Bloom, ChromaticAberration } from "@react-three/postprocessing";
 import { BlendFunction } from "postprocessing";
+import { AnimatePresence, motion } from "framer-motion";
 import { AbstractForm, createMonolithicFragment, type FragmentMesh } from "./abstract-form";
 import { useFragmentStore, cloneFragmentTransform } from "@/lib/store/fragments";
 import {
@@ -366,18 +367,23 @@ export function SculptureCanvas() {
         </Suspense>
       </Canvas>
 
-      {!started && (
-        <button
-          type="button"
-          className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 backdrop-blur-sm"
-          onClick={() => setStarted(true)}
-          aria-label="Touch to begin"
-        >
-          <span className="font-mono text-[11px] uppercase tracking-[0.45em] text-white/50 animate-pulse">
-            Touch to begin
-          </span>
-        </button>
-      )}
+      <AnimatePresence>
+        {!started && (
+          <motion.button
+            type="button"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.5 }}
+            className="absolute inset-0 z-10 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+            onClick={() => setStarted(true)}
+            aria-label="Touch to begin"
+          >
+            <span className="font-mono text-[11px] uppercase tracking-[0.45em] text-white/50 animate-pulse">
+              Touch to begin
+            </span>
+          </motion.button>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
